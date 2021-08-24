@@ -1,0 +1,27 @@
+{
+    "version": "0.1",
+    "soldiers": [
+        {
+            "name": "?",
+            "age": 0,
+            "patent": "?",
+            "armor": "?",
+            "photos": [
+                "C:/Users/Java/Desktop/future_armors/faces/jon1.jpg",
+                "C:/Users/Java/Desktop/future_armors/faces/jon2.jpg",
+                "C:/Users/Java/Desktop/future_armors/faces/jon3.jpg"
+            ]
+        },
+        {
+            "name": "?",
+            "age": 0,
+            "patent": "?",
+            "armor": "?",
+            "photos": [
+                "C:/Users/Java/Desktop/future_armors/faces/vin.jpg",
+                "C:/Users/Java/Desktop/future_armors/faces/vin2.jpg",
+                "C:/Users/Java/Desktop/future_armors/faces/vin3.jpg"
+            ]
+        }
+    ]
+}
