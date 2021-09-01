@@ -2,7 +2,6 @@ import face_recognition
 import random
 import faker
 import json
-import simpy
 import secrets
 
 PHOTOS = [
@@ -32,10 +31,8 @@ TIME_TO_GO_WAR = 100
 
 
 def start():
-    fake_data_generator = faker.Faker(locale="pt-BR")
     
     recognized_soldiers = {}
-    
     
     equipped_soldiers = {}
     patent_soldiers = {}
@@ -52,7 +49,7 @@ def start():
     with open(CONFIG_FILE, 'r') as conf_file:
         config = json.load(conf_file)
 
-    return config, patent_soldiers, equipped_soldiers, recognized_soldiers, armor_storage, fake_data_generator
+    return config, patent_soldiers, equipped_soldiers, recognized_soldiers, armor_storage
 
 def simule_enlistment(photo):
     person = {
@@ -61,9 +58,10 @@ def simule_enlistment(photo):
 
     return person
 
-def is_soldier(person, config, fake_data):
+def is_soldier(person, config):
 
-    print("Iniciando reconhecimento da pessoa...")
+    fake_data_generator = faker.Faker(locale="pt-BR")
+
     person_photo = face_recognition.load_image_file(person["photo"])
     person_photo_encoded = face_recognition.face_encodings(person_photo)[0]
 
@@ -79,7 +77,6 @@ def is_soldier(person, config, fake_data):
 
             if face_recognition.compare_faces([person_photo_encoded], data_encoded):
                 total_recognized += 1
-        print("acertos:", total_recognized, len(photo_database) )
         if total_recognized/len(photo_database) > 0.70:
             soldier_recognized = True
 
@@ -97,139 +94,95 @@ def print_soldier_data(soldier):
     print("Nome: ", soldier["soldiers"]["name"])
     print("Idade: ", soldier["soldiers"]["age"])
 
-def recognitize_person(person, config, fake_data):
-
-    while True:
-        print("Reconhecendo Soldado.")
-        recognized, soldier = is_soldier(person, config, fake_data)
-
-        if recognized:
-            id = secrets.token_hex(nbytes=4).upper()
-            recognized_soldiers[id] = soldier
-
-            print("Um Soldado foi reconhecido. Soldier Token: ", id)
-            print_soldier_data(soldier)
-        else:
-            print("Não foi reconhecido como soldado")
-        yield env.timeout(ENLISTMENT_TIME)
+def recognitize_person(person, config):
+    recognized, soldier = is_soldier(person, config)
+    recognized_soldier = {}
     
-    return recognized, recognized_soldiers
+    return recognized, soldier
 
-def indentify_patent(recognized_soldiers, patent_soldiers, random_patent):
+def indentify_patent(recognized_soldiers, random_patent):
 
-    if len(recognized_soldiers):
-        print("Verificando patente do soldado")
-        for id, soldier in list(recognized_soldiers.items()):
-            if random_patent == 1:
-                soldier["soldiers"]["patent"] = "Recruit"
-                print(soldier["soldiers"]["name"], " é reconhecido(a) como: ", soldier["soldiers"]["patent"])
-                patent_soldiers[id] =  soldier
+    patent_soldier = []
 
-            elif random_patent == 2:
-                soldier["soldiers"]["patent"] = "Solid"
-                print(soldier["soldiers"]["name"], " é reconhecido(a) como: ", soldier["soldiers"]["patent"])
-                patent_soldiers[id] =  soldier
-            
-            elif random_patent == 3:
-                soldier["soldiers"]["patent"] = "General"
-                print(soldier["soldiers"]["name"], " é reconhecido(a) como: ", soldier["soldiers"]["patent"])
-                patent_soldiers[id] =  soldier
+    for id, soldier in list(recognized_soldiers.items()):
+        if random_patent == '1':
+            soldier["soldiers"]["patent"] = "Recruit"
+            patent_soldier = soldier
 
-            elif random_patent == 4:
-                soldier["soldiers"]["patent"] = "Major"
-                print(soldier["soldiers"]["name"], " é reconhecido(a) como: ", soldier["soldiers"]["patent"])
-                patent_soldiers[id] =  soldier
+        elif random_patent == '2':
+            soldier["soldiers"]["patent"] = "Solid"
+            patent_soldier = soldier
+        
+        elif random_patent == '3':
+            soldier["soldiers"]["patent"] = "General"
+            patent_soldier =  soldier
 
-        return patent_soldiers
+        elif random_patent == '4':
+            soldier["soldiers"]["patent"] = "Major"
+            patent_soldier =  soldier
+
+        return True, patent_soldier['soldiers']
 
 
-def select_armor(patent_soldiers, armor_storage, equipped_soldiers):
+def select_armor(patent_soldiers, armor_storage):
     
-    if len(patent_soldiers):
-        print("Verificando a disponibilidade de Traje de Batalha em: ", env.now)
-        for id, soldier in list(patent_soldiers.items()):
+    equipped_soldier = {}
+    
+    for id, soldier in list(patent_soldiers.items()):
+        patent = soldier["patent"]
+
+        if patent == 'Recruit':
             
-            if not soldier["soldiers"]["equipped"]:
-                
-                soldier_name = soldier["soldiers"]["name"]
-                patent = soldier["soldiers"]["patent"]
+            if armor_storage['Bronze Armor'] > 0:
+                soldier["armor"] = "Bronze Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
+            else: 
+                soldier["armor"] = "Commum Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
 
-                if patent == 'Recruit':
-                    if armor_storage['Bronze Armor'] > 0:
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Bronze em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Bronze Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
-                        armor_storage['Bronze Armor'] -= 1
-                    else: 
-                        print("Trajes de Batalhas disponíveis para essa patente esgotados. O soldado será equipado com um traje comum.")
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Comum em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Commum Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
+        elif patent == 'Solid':
+            if armor_storage['Steel Armor'] > 0:
+                soldier["armor"] = "Steel Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
+            else: 
+                soldier["armor"] = "Commum Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
 
-                elif patent == 'Solid':
-                    if armor_storage['Steel Armor'] > 0:
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Steel em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Steel Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
-                        armor_storage['Steel Armor'] -= 1
-                    else: 
-                        print("Trajes de Batalhas disponíveis para essa patente esgotados. O soldado será equipado com um traje comum.")
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Comum em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Commum Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
+        elif patent == 'General':
+            if armor_storage['Platinum Armor'] > 0:
+                soldier["armor"] = "Platinum Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
+            else: 
+                soldier["armor"] = "Commum Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier       
 
-                elif patent == 'General':
-                    if armor_storage['Platinum Armor'] > 0:
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Platinum em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Platinum Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
-                        armor_storage['Platinum Armor'] -= 1
-                    else: 
-                        print("Trajes de Batalhas disponíveis para essa patente esgotados. O soldado será equipado com um traje comum.")
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Comum em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Commum Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier       
+        elif patent == 'Major':
+            if armor_storage['Diamond Scale Armor'] > 0:
+                soldier["armor"] = "Diamond Scale Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
+            else: 
+                soldier["armor"] = "Commum Armor"
+                soldier["equipped"] = True
+                equipped_soldier = soldier
 
-                elif patent == 'Major':
-                    if armor_storage['Diamond Scale Armor'] > 0:
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Diamond Scale em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Diamond Scale Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
-                        armor_storage['Diamond Scale Armor'] -= 1
-                    else: 
-                        print("Trajes de Batalhas disponíveis para essa patente esgotados. O soldado será equipado com um traje comum.")
-                        print(soldier_name, " equipado(a) com Traje de Batalha do tipo Comum em: ", env.now)
-                        soldier["soldiers"]["armor"] = "Commum Armor"
-                        soldier["soldiers"]["equipped"] = True
-                        equipped_soldiers[id] = soldier
-
-                return True, equipped_soldiers   
-            else:
-                print("Patente não reconhecida.")
-                return False,equipped_soldiers
-
-            patent_soldiers.pop(id)
-
+    return True, equipped_soldier
+    
 def provide_armor(equipped_soldiers):
     sucess = False
-    if len(equipped_soldiers):
-        print("Equipando e enviando Soldado para missão em: ", env.now)
+    in_mission = {}
 
-        for id, soldier in list(equipped_soldiers.items()):
-            
-            if not soldier["soldiers"]["inMission"]:
-                soldier["soldiers"]["inMission"] = True
-                print("Missão de nível", random.randint(0,5), " selecionada. Enviando", soldier["soldiers"]["patent"], soldier["soldiers"]["name"], "em missão.")
-                print("O traje", soldier["soldiers"]["armor"], "está equipado com tecnologia de ponta. Vefique a bateria e munição antes de sair. Boa Sorte!")
-                equipped_soldiers.pop(id)
-                print("\n==================================================================================================================\n")
-            sucess = True
+    for id, soldier in list(equipped_soldiers.items()):
+        
+        if not soldier["inMission"]:
+            soldier["inMission"] = True
+        sucess = True
+        in_mission = soldier
 
-    return sucess
+    return sucess, in_mission
